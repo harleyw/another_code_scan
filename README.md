@@ -166,4 +166,4 @@ Contributions to improve this project are welcome through Issues and Pull Reques
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE)
+This project is licensed under the [BSD 3-clause License](LICENSE)

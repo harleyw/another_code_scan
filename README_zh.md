@@ -166,4 +166,4 @@ npm run dev
 
 ## 📄 许可证
 
-本项目使用 [MIT 许可证](LICENSE)
+本项目使用 [BSD 3-clause 许可证](LICENSE)
