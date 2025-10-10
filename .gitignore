@@ -48,6 +48,17 @@ coverage.xml
 *.cover
 *.py.cover
 .hypothesis/
+
+# Excel files
+*.xlsx
+*.xls
+*.xlsm
+*.xltx
+*.xltm
+
+# PR files directory
+pr_files_before/
+
 .pytest_cache/
 cover/
 
