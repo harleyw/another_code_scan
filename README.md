@@ -1,92 +1,92 @@
-# PR 审查系统
+# PR Review System
 
-基于 LangGraph 和 RAG 技术的智能 PR 审查和问答系统，帮助开发者更高效地分析和理解 GitHub Pull Request 历史记录。
+An intelligent PR review and Q&A system based on LangGraph and RAG technologies, helping developers analyze and understand GitHub Pull Request history more efficiently.
 
-## 🚀 项目概述
+## 🚀 Project Overview
 
-本系统通过以下核心功能帮助团队提升代码审查效率：
-- 自动收集 GitHub 仓库的所有已合并 PR 并生成 Excel 数据文件
-- 基于 RAG (Retrieval-Augmented Generation) 技术构建知识库
-- 提供智能问答功能，快速查询 PR 相关信息
-- 支持多仓库管理和数据持久化
+This system helps teams improve code review efficiency through the following core functions:
+- Automatically collect all merged PRs from GitHub repositories and generate Excel data files
+- Build knowledge base based on RAG (Retrieval-Augmented Generation) technology
+- Provide intelligent Q&A functionality for quick查询 of PR-related information
+- Support multi-repository management and data persistence
 
-## 🛠 技术栈
+## 🛠 Technology Stack
 
-- **后端框架**：FastAPI + Uvicorn
-- **RAG 技术**：LangChain, LangGraph, LangChain-OpenAI
-- **向量存储**：ChromaDB
-- **嵌入模型**：DashScope
-- **数据处理**：OpenPyXL, Pandas
-- **API 调用**：Requests
-- **前端**：Vue.js (位于 frontend 目录)
+- **Backend Framework**: FastAPI + Uvicorn
+- **RAG Technology**: LangChain, LangGraph, LangChain-OpenAI
+- **Vector Storage**: ChromaDB
+- **Embedding Model**: DashScope
+- **Data Processing**: OpenPyXL, Pandas
+- **API Calls**: Requests
+- **Frontend**: Vue.js (located in the frontend directory)
 
-## 📋 系统架构
+## 📋 System Architecture
 
 ```
-├── app.py                 # 主应用入口
-├── services/              # 核心服务模块
-│   ├── pr_collector/      # PR 收集服务
-│   ├── rag_service/       # RAG 问答服务
-│   └── repo_manager/      # 仓库管理服务
-├── libs/                  # 工具库
-│   ├── pr_helper/         # PR 处理工具
-│   └── rag_base/          # RAG 基础组件
-├── util/                  # 通用工具
-├── cfg/                   # 配置文件目录
-└── frontend/              # 前端代码
+├── app.py                 # Main application entry
+├── services/              # Core service modules
+│   ├── pr_collector/      # PR collection service
+│   ├── rag_service/       # RAG Q&A service
+│   └── repo_manager/      # Repository management service
+├── libs/                  # Tool libraries
+│   ├── pr_helper/         # PR processing tools
+│   └── rag_base/          # RAG base components
+├── util/                  # Common utilities
+├── cfg/                   # Configuration files directory
+└── frontend/              # Frontend code
 ```
 
-## ⚙️ 配置说明
+## ⚙️ Configuration Instructions
 
-### 配置文件
+### Configuration File
 
-所有配置键值均存储在统一的 JSON 文件中：`./cfg/config.json`
+All configuration keys are stored in a single JSON file: `./cfg/config.json`
 
-配置文件包含以下键：
-- `github_token`: GitHub 个人访问令牌，用于访问仓库
-- `dashscope_api_key`: DashScope 嵌入模型 API 密钥
-- `openai_api_key`: OpenAI 服务 API 密钥（如需使用）
+The configuration file contains the following keys:
+- `github_token`: GitHub personal access token for accessing repositories
+- `dashscope_api_key`: API key for DashScope embeddings
+- `openai_api_key`: API key for OpenAI services (if used)
 
-### 配置优先级
+### Configuration Priority
 
-系统按以下优先级顺序读取配置：
-1. 显式传递给函数/类的值
-2. 配置文件中的值 (`./cfg/config.json`)
-3. 环境变量（作为回退）
+The system reads configuration in the following priority order:
+1. Values explicitly passed to functions/classes
+2. Values from the configuration file (`./cfg/config.json`)
+3. Environment variables (as fallback)
 
-### 环境变量回退
+### Environment Variable Fallback
 
-如果在配置文件中未找到键，系统会尝试从以下环境变量读取：
-- `GITHUB_TOKEN` 对应 GitHub token
-- `DASHSCOPE_API_KEY` 对应 DashScope API key
-- `OPENAI_API_KEY` 对应 OpenAI API key
+If a key is not found in the configuration file, the system will attempt to read it from the following environment variables:
+- `GITHUB_TOKEN` for GitHub token
+- `DASHSCOPE_API_KEY` for DashScope API key
+- `OPENAI_API_KEY` for OpenAI API key
 
-这确保了与依赖环境变量的现有设置的向后兼容性。
+This ensures backward compatibility with existing setups that rely on environment variables.
 
-## 🚀 部署指南
+## 🚀 Deployment Guide
 
-### 1. 克隆项目
+### 1. Clone the Project
 
 ```bash
 git clone <repository-url>
 cd code_scan
 ```
 
-### 2. 安装依赖
+### 2. Install Dependencies
 
 ```bash
-# 安装 Python 依赖
+# Install Python dependencies
 pip install -r requirements.txt
 
-# 如需前端开发，安装前端依赖
+# If frontend development is needed, install frontend dependencies
 cd frontend
 npm install
 cd ..
 ```
 
-### 3. 配置 API 密钥
+### 3. Configure API Keys
 
-创建或编辑配置文件 `./cfg/config.json`：
+Create or edit the configuration file `./cfg/config.json`:
 
 ```json
 {
@@ -96,74 +96,74 @@ cd ..
 }
 ```
 
-### 4. 运行后端服务
+### 4. Run the Backend Service
 
 ```bash
-# 直接运行
+# Run directly
 python app.py
 
-# 或使用 uvicorn 运行（支持更多配置）
+# Or run with uvicorn (supports more configurations)
 uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-### 5. 运行前端服务（可选）
+### 5. Run the Frontend Service (Optional)
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-## 🔧 开发指南
+## 🔧 Development Guide
 
-### 项目结构说明
+### Project Structure Description
 
-- **app.py**: 主应用入口，定义 API 路由和服务启动逻辑
-- **services/**: 包含核心业务逻辑
-- **libs/**: 提供底层功能支持和工具类
-- **util/**: 通用工具函数和配置管理
-- **cfg/**: 存放配置文件
+- **app.py**: Main application entry, defines API routes and service startup logic
+- **services/**: Contains core business logic
+- **libs/**: Provides underlying functional support and utility classes
+- **util/**: Common utility functions and configuration management
+- **cfg/**: Stores configuration files
 
-### 主要 API 接口
+### Main API Interfaces
 
-1. **首页**
-   - 路径: GET `/`
-   - 描述: 系统首页
+1. **Home Page**
+   - Path: GET `/`
+   - Description: System home page
 
-2. **收集 PR 数据**
-   - 路径: POST `/api/collect_prs`
-   - 参数: `owner` (仓库所有者), `repo` (仓库名称)
-   - 描述: 异步收集指定仓库的所有已合并 PR 并生成 Excel 文件
+2. **Collect PR Data**
+   - Path: POST `/api/collect_prs`
+   - Parameters: `owner` (repository owner), `repo` (repository name)
+   - Description: Asynchronously collect all merged PRs from the specified repository and generate Excel file
 
-3. **PR 审查**
-   - 路径: POST `/api/review_pr`
-   - 参数: `owner`, `repo`, `pr_id` (可选), `question` (可选)
-   - 描述: 对指定仓库或特定 PR 进行智能审查
+3. **PR Review**
+   - Path: POST `/api/review_pr`
+   - Parameters: `owner`, `repo`, `pr_id` (optional), `question` (optional)
+   - Description: Conduct intelligent review for the specified repository or specific PR
 
-4. **获取仓库服务**
-   - 路径: GET `/api/review/{owner}/{repo}`
-   - 描述: 获取或创建指定仓库的审查服务实例
+4. **Get Repository Service**
+   - Path: GET `/api/review/{owner}/{repo}`
+   - Description: Get or create a review service instance for the specified repository
 
-## 📊 使用流程
+## 📊 Usage Flow
 
-1. **收集 PR 数据**：调用 `/api/collect_prs` 接口，提供仓库所有者和仓库名称
-2. **等待数据处理**：系统会异步处理 PR 数据并生成 Excel 文件
-3. **查询审查服务**：调用 `/api/review/{owner}/{repo}` 检查服务初始化状态
-4. **进行 PR 审查**：调用 `/api/review_pr` 接口进行智能问答和审查
+1. **Collect PR Data**: Call the `/api/collect_prs` endpoint, providing the repository owner and name
+2. **Wait for Data Processing**: The system will asynchronously process PR data and generate an Excel file
+3. **Query Review Service**: Call `/api/review/{owner}/{repo}` to check the service initialization status
+4. **Conduct PR Review**: Call the `/api/review_pr` endpoint for intelligent Q&A and review
 
-## 📝 注意事项
+## 📝 Notes
 
-- 确保配置文件中的 API 密钥具有足够的权限
-- 首次运行时，系统可能需要一些时间来收集数据和构建向量存储
-- PR 数据将保存在项目目录下的 `{owner}/{repo}` 文件夹中
-- 如需自定义端口或主机，请修改 `app.py` 中的 `uvicorn.run` 参数或使用命令行参数
+- Ensure that the API keys in the configuration file have sufficient permissions
+- When running for the first time, the system may need some time to collect data and build the vector store
+- PR data will be saved in the `{owner}/{repo}` folder under the project directory
+- To customize the port or host, modify the `uvicorn.run` parameters in `app.py` or use command-line arguments
 
-## 🤝 贡献指南
+## 🤝 Contribution Guide
 
-欢迎提交 Issue 和 Pull Request 来改进此项目。在提交代码前，请确保：
-- 代码风格与现有代码保持一致
-- 添加必要的注释和文档
-- 测试新功能以确保兼容性
+Contributions to improve this project are welcome through Issues and Pull Requests. Before submitting code, please ensure:
+- Code style is consistent with existing code
+- Necessary comments and documentation are added
+- New features are tested to ensure compatibility
 
-## 📄 许可证
+## 📄 License
 
-本项目使用 [MIT 许可证](LICENSE)
+This project is licensed under the [MIT License](LICENSE)
