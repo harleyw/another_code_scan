@@ -1,12 +1,12 @@
 <template>
   <div class="home-container">
-    <h1>Repository RAG 问答系统</h1>
+    <h1>Github Repo PR评审系统</h1>
     <div class="repo-list">
-      <!-- 这里会显示所有已配置的仓库 RAG 模块 -->
+      <!-- 这里会显示所有已配置的仓库 PR 评审模块 -->
       <!-- 目前暂时使用硬编码的示例 -->
       <div class="repo-card" v-for="repo in repos" :key="repo.id">
         <h2>{{ repo.owner }} / {{ repo.name }}</h2>
-        <p>{{ repo.description }}</p>
+        <p v-html="repo.description"></p>
         <button @click="goToRepoChat(repo.owner, repo.name)">进入问答系统</button>
       </div>
       
@@ -25,36 +25,47 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 
 const router = useRouter()
-const repos = ref([
-  // 硬编码的示例仓库
-  {
-    id: 1,
-    owner: 'example',
-    name: 'repo1',
-    description: '示例仓库 1'
-  },
-  {
-    id: 2,
-    owner: 'example',
-    name: 'repo2',
-    description: '示例仓库 2'
-  }
-])
+const repos = ref([])
 
 // 初始化时获取已有的仓库列表
 const fetchRepos = async () => {
   try {
-    // 这里可以添加后端 API 调用来获取实际的仓库列表
-    // const response = await axios.get('/api/repos')
-    // repos.value = response.data
+    // 调用后端 API 获取实际的仓库列表
+    const response = await axios.get('/api/review/all')
+    // 将后端返回的数据转换为前端需要的格式
+    repos.value = response.data.repositories.map((repo, index) => ({
+      id: index + 1,
+      owner: repo.owner,
+      name: repo.repo,
+      description: `仓库状态: <br>历史PR数据：${
+        repo.pr_data_status === 'historical_pr_ready' ? '已就绪' : '未就绪'
+      } | 向量库: ${
+        repo.vectorstore_status === 'rag_ready' ? '已就绪' : '未就绪'
+      }`
+    }))
   } catch (error) {
     console.error('获取仓库列表失败:', error)
+    // 如果API调用失败，显示示例数据
+    repos.value = [
+      {
+        id: 1,
+        owner: 'example',
+        name: 'repo1',
+        description: '示例仓库 1'
+      },
+      {
+        id: 2,
+        owner: 'example',
+        name: 'repo2',
+        description: '示例仓库 2'
+      }
+    ]
   }
 }
 
 // 跳转到仓库问答页面
 const goToRepoChat = (owner, repo) => {
-  router.push({ name: 'repoChat', params: { owner, repo } })
+  router.push({ name: 'repoRag', params: { owner, repo } })
 }
 
 // 页面加载时执行

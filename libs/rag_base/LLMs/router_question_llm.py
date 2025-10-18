@@ -3,9 +3,11 @@
 from typing import Literal
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatDashScope
+from langchain_community.chat_models.tongyi import ChatTongyi
 
 from pydantic import BaseModel, Field
+
+from util.config_manager import ConfigManager
 
 
 # Data model
@@ -18,8 +20,12 @@ class RouteQuery(BaseModel):
     )
 
 
+# Initialize config manager and get API key
+config_manager = ConfigManager()
+dashscope_api_key = config_manager.get_dashscope_api_key()
+
 # LLM with function call
-llm = ChatDashScope(model="qwen-plus", temperature=0)
+llm = ChatTongyi(model="qwen-plus", temperature=0, dashscope_api_key=dashscope_api_key)
 structured_llm_router = llm.with_structured_output(RouteQuery)
 
 # Prompt

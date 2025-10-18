@@ -91,6 +91,18 @@ class ConfigManager:
             # 如果配置文件中没有api key，则尝试从环境变量获取
             api_key = os.environ.get("OPENAI_API_KEY")
         return api_key if api_key else None
+        
+    def get_pr_review_data_dir(self) -> str:
+        """获取PR审查数据目录路径
+        
+        Returns:
+            str: PR审查数据目录路径，如果未设置则返回默认值"./pr_review_data"
+        """
+        data_dir = self.config_data.get("pr_review_data_dir")
+        if not data_dir:
+            # 如果配置文件中没有设置，则尝试从环境变量获取，否则返回默认值
+            data_dir = os.environ.get("PR_REVIEW_DATA_DIR", "./pr_review_data")
+        return data_dir
     
     def set_github_token(self, token: str):
         """设置GitHub token
@@ -118,3 +130,40 @@ class ConfigManager:
         """
         self.config_data["openai_api_key"] = api_key
         self._save_config(self.config_data)
+        
+    def get_max_concurrent_pr_collection(self) -> int:
+        """获取历史PR收集任务的最大并发数
+        
+        Returns:
+            int: 历史PR收集任务的最大并发数，如果未设置则返回默认值5
+        """
+        max_concurrent = self.config_data.get("max_concurrent_pr_collection")
+        if max_concurrent is None:
+            # 如果配置文件中没有设置，则尝试从环境变量获取，否则返回默认值
+            max_concurrent = os.environ.get("MAX_CONCURRENT_PR_COLLECTION", 5)
+        return int(max_concurrent)
+    
+    def get_config_value(self, key: str, default_value=None):
+        """获取配置文件中的任意配置值
+        
+        Args:
+            key: 配置项的键名
+            default_value: 配置项不存在时返回的默认值
+        
+        Returns:
+            配置项的值，如果不存在则返回默认值
+        """
+        # 首先从配置文件中获取
+        value = self.config_data.get(key)
+        
+        # 如果配置文件中不存在，尝试从环境变量获取
+        if value is None:
+            # 将key转换为环境变量格式（大写，下划线替换点）
+            env_key = key.upper().replace(".", "_")
+            value = os.environ.get(env_key)
+        
+        # 如果仍然不存在，返回默认值
+        if value is None:
+            value = default_value
+        
+        return value

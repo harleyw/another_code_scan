@@ -23,7 +23,7 @@
 ## 📋 系统架构
 
 ```
-├── app.py                 # 主应用入口
+├── backend_app.py                 # 主应用入口
 ├── services/              # 核心服务模块
 │   ├── pr_collector/      # PR 收集服务
 │   ├── rag_service/       # RAG 问答服务
@@ -68,8 +68,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
-cd code_scan
+git clone https://github.com/harleyw/another_code_scan.git
+cd another_code_scan
 ```
 
 ### 2. 安装依赖
@@ -100,10 +100,10 @@ cd ..
 
 ```bash
 # 直接运行
-python app.py
+python backend_app.py
 
 # 或使用 uvicorn 运行（支持更多配置）
-uvicorn app:app --host 0.0.0.0 --port 8000
+uvicorn backend_app:app --host 0.0.0.0 --port 8000
 ```
 
 ### 5. 运行前端服务（可选）
@@ -117,7 +117,7 @@ npm run dev
 
 ### 项目结构说明
 
-- **app.py**: 主应用入口，定义 API 路由和服务启动逻辑
+- **backend_app.py**: 主应用入口，定义 API 路由和服务启动逻辑
 - **services/**: 包含核心业务逻辑
 - **libs/**: 提供底层功能支持和工具类
 - **util/**: 通用工具函数和配置管理
@@ -155,7 +155,7 @@ npm run dev
 - 确保配置文件中的 API 密钥具有足够的权限
 - 首次运行时，系统可能需要一些时间来收集数据和构建向量存储
 - PR 数据将保存在项目目录下的 `{owner}/{repo}` 文件夹中
-- 如需自定义端口或主机，请修改 `app.py` 中的 `uvicorn.run` 参数或使用命令行参数
+- 如需自定义端口或主机，请修改 `backend_app.py` 中的 `uvicorn.run` 参数或使用命令行参数
 
 ## 🤝 贡献指南
 

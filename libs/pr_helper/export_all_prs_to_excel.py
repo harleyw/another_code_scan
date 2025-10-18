@@ -12,22 +12,25 @@ import requests
 from typing import List, Optional
 
 from util.config_manager import ConfigManager
-from github_pr_to_excel import GitHubPRToExcelExporter
+from .github_pr_to_excel import GitHubPRToExcelExporter
 
 
 class GitHubAllPRsExporter:
     """Tool class for exporting all PRs of a GitHub repository to Excel"""
     
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: Optional[str] = None, auto_update_pr_data: Optional[bool] = None):
         """Initialize the exporter
         
         Args:
             token: GitHub personal access token, used to access private repositories or increase API rate limits
+            auto_update_pr_data: Whether to automatically update PR data by fetching latest PRs from GitHub
         """
         # 初始化配置管理器（使用自动计算的默认路径）
         config_manager = ConfigManager()
         # 如果没有传入token，则从配置文件中获取
         token = token or config_manager.get_github_token()
+        # 如果没有传入auto_update_pr_data，则从配置文件中获取
+        self.auto_update_pr_data = auto_update_pr_data if auto_update_pr_data is not None else config_manager.get_config_value('auto_update_pr_data', False)
         
         self.base_url = "https://api.github.com"
         self.headers = {
@@ -39,16 +42,55 @@ class GitHubAllPRsExporter:
         # Initialize the PR to Excel exporter
         self.pr_exporter = GitHubPRToExcelExporter(token)
 
-    def get_pr_file_path(self, state: str) -> str:
-        """Get the PR file path based on the state
+    def get_pr_file_path(self, state: str, owner: str, repo: str) -> str:
+        """Get the PR file path based on the state, owner and repo
         
         Args:
             state: State of PRs (open, closed, merged, or all)
+            owner: Repository owner
+            repo: Repository name
         
         Returns:
             Path to the PR file
         """
-        return f"all_prs_{state}.txt"
+        # Get PR review data directory from config
+        config_manager = ConfigManager()
+        data_dir = config_manager.get_pr_review_data_dir()
+        
+        # Build the full directory path
+        pr_dir = os.path.join(data_dir, owner, repo)
+        
+        # Ensure the directory exists
+        if not os.path.exists(pr_dir):
+            os.makedirs(pr_dir, exist_ok=True)
+        
+        # Return the full file path
+        return os.path.join(pr_dir, f"all_unhandled_prs_{state}.txt")
+    
+    def get_latest_pr_file_path(self, state: str, owner: str, repo: str) -> str:
+        """Get the path to the latest PR file
+        
+        Args:
+            state: State of PRs (open, closed, merged, or all)
+            owner: Repository owner
+            repo: Repository name
+        
+        Returns:
+            Path to the latest PR file
+        """
+        # Get PR review data directory from config
+        config_manager = ConfigManager()
+        data_dir = config_manager.get_pr_review_data_dir()
+        
+        # Build the full directory path
+        pr_dir = os.path.join(data_dir, owner, repo)
+        
+        # Ensure the directory exists
+        if not os.path.exists(pr_dir):
+            os.makedirs(pr_dir, exist_ok=True)
+        
+        # Return the full file path
+        return os.path.join(pr_dir, f"all_latest_prs_{state}.txt")
 
     def get_all_prs(self, owner: str, repo: str, state: str = "all") -> List[int]:
         """Get all PR numbers for a repository
@@ -117,7 +159,54 @@ class GitHubAllPRsExporter:
             prs_to_process = pr_numbers.copy()
         else:
             # 获取PR文件路径
-            pr_file_path = self.get_pr_file_path(state)
+            pr_file_path = self.get_pr_file_path(state, owner, repo)
+            
+            # 检查是否需要自动更新PR数据
+            if self.auto_update_pr_data:
+                print(f"Auto updating PR data for {owner}/{repo}...")
+                # 重新从GitHub收集所有历史PR号码
+                latest_pr_numbers = self.get_all_prs(owner, repo, state)
+                
+                # 获取最新PR文件路径
+                latest_pr_file_path = self.get_latest_pr_file_path(state, owner, repo)
+                
+                # 检查最新PR文件是否存在
+                if os.path.exists(latest_pr_file_path):
+                    # 读取现有最新PR号码
+                    try:
+                        with open(latest_pr_file_path, 'r') as f:
+                            existing_pr_numbers = [int(line.strip()) for line in f if line.strip().isdigit()]
+                        
+                        # 找出差异（新的PR号码）
+                        new_pr_numbers = [pr for pr in latest_pr_numbers if pr not in existing_pr_numbers]
+                        
+                        if new_pr_numbers:
+                            print(f"Found {len(new_pr_numbers)} new PRs that need to be processed.")
+                            # 将新的PR号码追加到未处理PR文件
+                            with open(pr_file_path, 'a') as f:
+                                for pr_id in new_pr_numbers:
+                                    f.write(f"{pr_id}\n")
+                        else:
+                            print("No new PRs found.")
+                    except Exception as e:
+                        print(f"Error reading latest PR file: {str(e)}")
+                else:
+                    print(f"Latest PR file {latest_pr_file_path} not found. Creating new file.")
+                    # 创建新的最新PR文件
+                    with open(latest_pr_file_path, 'w') as f:
+                        for pr_id in latest_pr_numbers:
+                            f.write(f"{pr_id}\n")
+                    # 将所有PR号码写入未处理PR文件
+                    with open(pr_file_path, 'w') as f:
+                        for pr_id in latest_pr_numbers:
+                            f.write(f"{pr_id}\n")
+                    print(f"Created new PR files with {len(latest_pr_numbers)} PRs.")
+                
+                # 用当前下载的PR号码覆盖最新PR文件
+                with open(latest_pr_file_path, 'w') as f:
+                    for pr_id in latest_pr_numbers:
+                        f.write(f"{pr_id}\n")
+                print(f"Updated latest PR file with {len(latest_pr_numbers)} PRs.")
             
             # 检查PR文件是否存在
             if os.path.exists(pr_file_path):
@@ -152,7 +241,7 @@ class GitHubAllPRsExporter:
                 
                 # 如果使用了PR文件，成功处理后从文件中删除该PR
                 if not pr_numbers:
-                    pr_file_path = self.get_pr_file_path(state)
+                    pr_file_path = self.get_pr_file_path(state, owner, repo)
                     if os.path.exists(pr_file_path):
                         # 读取当前文件内容
                         with open(pr_file_path, 'r') as f:
@@ -165,6 +254,25 @@ class GitHubAllPRsExporter:
                         print(f"Removed PR #{pr_number} from {pr_file_path}")
             except Exception as e:
                 print(f"Error exporting PR #{pr_number}: {str(e)}", file=sys.stderr)
+                # 如果使用了PR文件，处理失败也从原文件中删除该PR
+                if not pr_numbers:
+                    pr_file_path = self.get_pr_file_path(state, owner, repo)
+                    if os.path.exists(pr_file_path):
+                        # 读取当前文件内容
+                        with open(pr_file_path, 'r') as f:
+                            lines = f.readlines()
+                        # 过滤掉处理失败的PR
+                        with open(pr_file_path, 'w') as f:
+                            for line in lines:
+                                if line.strip() != str(pr_number):
+                                    f.write(line)
+                        print(f"Removed failed PR #{pr_number} from {pr_file_path}")
+                        
+                        # 将处理失败的PR添加到异常文件
+                        exception_file_path = self.get_pr_file_path(f"exception_{state}", owner, repo)
+                        with open(exception_file_path, 'a') as f:
+                            f.write(f"{pr_number}\n")
+                        print(f"Added failed PR #{pr_number} to exception file {exception_file_path}")
                 # Continue with next PR
         
         print(f"\nAll PR data successfully exported to {output_file}")
@@ -180,21 +288,25 @@ def main():
     parser.add_argument("--output", default="all_prs_data.xlsx", help="Output Excel file path")
     parser.add_argument("--prs", type=str, help="Comma-separated list of specific PR numbers to export, e.g., '1,2,3'")
     parser.add_argument("--fresh", action="store_true", help="Delete the corresponding PR file before starting")
+    parser.add_argument("--refresh", action="store_true", help="get the latest PRs from Github, and update excel")
     
     args = parser.parse_args()
     
     # 初始化配置管理器并获取GitHub token
-    config_manager = ConfigManager("./cfg/config.json")
+    config_manager = ConfigManager()
     if not args.token:
         args.token = config_manager.get_github_token()
     
+    if not args.refresh:
+        args.refresh = config_manager.get_config_value('auto_update_pr_data', False)
+        
     try:
         # Initialize exporter
-        exporter = GitHubAllPRsExporter(args.token)
+        exporter = GitHubAllPRsExporter(args.token, args.refresh)
         
         # 如果指定了--fresh参数，删除对应的PR文件
         if args.fresh and not args.prs:
-            pr_file_path = exporter.get_pr_file_path(args.state)
+            pr_file_path = exporter.get_pr_file_path(args.state, args.owner, args.repo)
             if os.path.exists(pr_file_path):
                 os.remove(pr_file_path)
                 print(f"Removed existing PR file: {pr_file_path}")

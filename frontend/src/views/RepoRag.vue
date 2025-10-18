@@ -1,40 +1,44 @@
 <template>
   <div class="repo-rag-container">
     <header class="repo-header">
-      <h1>仓库分析助手</h1>
+      <h1>代码仓库 {{ repoInfo.owner }}/{{ repoInfo.repo }} PR评审助手</h1>
       <div class="repo-info">
         <span class="owner-repo">{{ repoInfo.owner }} / {{ repoInfo.repo }}</span>
       </div>
     </header>
 
     <main class="main-content">
+      <div class="status-and-action-container">
+        <div v-if="repoStatus" class="status-container">
+          <div class="status-item">
+            <span class="status-label">历史PR数据状态:</span>
+            <span :class="['status-value', getStatusClass(repoStatus.pr_data_status)]">
+              {{ repoStatus.pr_data_status === 'historical_pr_ready' ? '已就绪' : '未就绪' }}
+            </span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">向量库服务状态:</span>
+            <span :class="['status-value', repoStatus.vectorstore_status === 'rag_ready' ? 'status-available' : 'status-unavailable']">
+              {{ repoStatus.vectorstore_status === 'rag_ready' ? '已就绪' : '未就绪' }}
+            </span>
+          </div>
+        </div>
+        <div class="action-container">
+          <button @click="collectPRs" :disabled="isLoading || !canCollectPRs" class="update-pr-btn">
+            {{ isLoading ? '更新中...' : '更新历史PR数据' }}
+          </button>
+        </div>
+      </div>
+
       <div class="pr-input-section">
         <label for="prUrl">PR 地址 (可选):</label>
         <input
           id="prUrl"
           v-model="prUrlInput"
           type="text"
-          placeholder="https://github.com/owner/repo/pull/123"
+          :placeholder="`https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/123`"
           @input="updatePrUrl"
         />
-        <button @click="collectPRs" :disabled="isLoading || !canCollectPRs">
-          {{ isLoading ? '收集PR中...' : '收集PR数据' }}
-        </button>
-      </div>
-
-      <div v-if="repoStatus" class="status-section">
-        <div class="status-item">
-          <span class="status-label">PR数据状态:</span>
-          <span :class="['status-value', repoStatus.has_pr_data ? 'status-available' : 'status-unavailable']">
-            {{ repoStatus.has_pr_data ? '可用' : '不可用' }}
-          </span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">RAG服务状态:</span>
-          <span :class="['status-value', repoStatus.initialized ? 'status-available' : 'status-unavailable']">
-            {{ repoStatus.initialized ? '已初始化' : '未初始化' }}
-          </span>
-        </div>
       </div>
 
       <div class="chat-section">
@@ -79,12 +83,22 @@ export default {
   setup() {
     const route = useRoute();
     const chatStore = useChatStore();
-    const { messages, isLoading, error, repoInfo } = storeToRefs(chatStore);
-    const { hasMessages, isEmpty } = chatStore;
+    const { messages, isLoading, error, repoInfo, hasMessages, isEmpty } = storeToRefs(chatStore);
     const messageInput = ref('');
     const prUrlInput = ref('');
     const repoStatus = ref(null);
     const messagesContainer = ref(null);
+    
+    // 根据PR数据状态返回对应的CSS类
+    const getStatusClass = (status) => {
+      if (status === 'historical_pr_ready') {
+        return 'status-available';
+      } else if (status === 'historical_pr_collecting' || status === 'historical_pr_updating') {
+        return 'status-collecting';
+      } else {
+        return 'status-unavailable';
+      }
+    };
 
     // 初始化仓库信息
     const initializeRepoInfo = async () => {
@@ -128,6 +142,7 @@ export default {
 
     // 更新PR URL
     const updatePrUrl = () => {
+      chatStore.repoInfo.prUrl = prUrlInput.value;
       // 这里可以添加验证逻辑
     };
 
@@ -178,7 +193,8 @@ export default {
       collectPRs,
       updatePrUrl,
       formatTime,
-      canCollectPRs
+      canCollectPRs,
+      getStatusClass
     };
   }
 };
@@ -189,6 +205,7 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
@@ -270,6 +287,46 @@ export default {
   border-radius: 8px;
 }
 
+.status-and-action-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 15px;
+}
+
+.status-container {
+  flex: 1;
+  padding: 15px;
+  background-color: #e9ecef;
+  border-radius: 8px;
+}
+
+.action-container {
+  white-space: nowrap;
+}
+
+.update-pr-btn {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  min-width: fit-content;
+}
+
+.update-pr-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.update-pr-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
 .status-item {
   display: flex;
   justify-content: space-between;
@@ -289,12 +346,16 @@ export default {
 }
 
 .status-available {
-  color: #28a745;
-}
+    color: #28a745;
+  }
 
-.status-unavailable {
-  color: #dc3545;
-}
+  .status-collecting {
+    color: #ffc107;
+  }
+
+  .status-unavailable {
+    color: #dc3545;
+  }
 
 .chat-section {
   display: flex;

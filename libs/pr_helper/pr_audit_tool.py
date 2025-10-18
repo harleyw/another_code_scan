@@ -117,7 +117,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # 初始化配置管理器并获取GitHub token
-    config_manager = ConfigManager("./cfg/config.json")
+    config_manager = ConfigManager()
     if not args.token:
         args.token = config_manager.get_github_token()
     

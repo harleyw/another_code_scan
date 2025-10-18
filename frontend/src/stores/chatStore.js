@@ -64,7 +64,7 @@ export const useChatStore = defineStore('chat', {
       this.error = null;
 
       try {
-        const response = await axios.post('/api/collect_prs', {
+        const response = await axios.post('/api/collect_history_prs', {
           owner: this.repoInfo.owner,
           repo: this.repoInfo.repo
         });

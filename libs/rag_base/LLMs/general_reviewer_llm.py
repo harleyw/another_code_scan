@@ -1,8 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatDashScope
+from langchain_community.chat_models.tongyi import ChatTongyi
+
+from util.config_manager import ConfigManager
 
 
 # Data model for code review results
@@ -28,10 +30,31 @@ class CodeReviewResult(BaseModel):
         None, 
         description="Optimized code examples if necessary"
     )
+    
+    # 使用模型级别的__init__方法进行预处理
+    def __init__(__pydantic_self__, **data: Any) -> None:
+        # 预处理code_examples字段
+        if 'code_examples' in data:
+            code_examples = data['code_examples']
+            # 处理字符串'None'情况
+            if isinstance(code_examples, str) and code_examples.lower() == 'none':
+                data['code_examples'] = None
+            # 处理字符串'[]'情况
+            elif isinstance(code_examples, str) and code_examples.strip() == '[]':
+                data['code_examples'] = []
+            # 将单个字符串转换为列表
+            elif isinstance(code_examples, str):
+                data['code_examples'] = [code_examples]
+        # 调用父类初始化
+        super().__init__(**data)
 
+
+# Initialize config manager and get API key
+config_manager = ConfigManager()
+dashscope_api_key = config_manager.get_dashscope_api_key()
 
 # LLM with structured output
-llm = ChatDashScope(model="qwen3-coder-plus", temperature=0)
+llm = ChatTongyi(model="qwen3-coder-plus", temperature=0, dashscope_api_key=dashscope_api_key)
 structured_llm_reviewer = llm.with_structured_output(CodeReviewResult)
 
 # Code review prompt template

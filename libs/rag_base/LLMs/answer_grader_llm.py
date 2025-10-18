@@ -2,7 +2,9 @@
 from pydantic import BaseModel, Field
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatDashScope
+from langchain_community.chat_models.tongyi import ChatTongyi
+
+from util.config_manager import ConfigManager
 
 
 # Data model
@@ -14,8 +16,12 @@ class GradeAnswer(BaseModel):
     )
 
 
+# Initialize config manager and get API key
+config_manager = ConfigManager()
+dashscope_api_key = config_manager.get_dashscope_api_key()
+
 # LLM with function call
-llm = ChatDashScope(model="qwen3-coder-plus", temperature=0)
+llm = ChatTongyi(model="qwen3-coder-plus", temperature=0, dashscope_api_key=dashscope_api_key)
 structured_llm_grader = llm.with_structured_output(GradeAnswer)
 
 # Prompt

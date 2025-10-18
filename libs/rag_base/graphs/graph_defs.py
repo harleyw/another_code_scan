@@ -1,5 +1,8 @@
-import re
 import os
+import re
+import logging
+import os
+from pprint import pformat
 from typing import List
 
 from typing_extensions import TypedDict
@@ -13,10 +16,14 @@ from libs.rag_base.LLMs.general_reviewer_llm import general_reviewer
 from libs.rag_base.LLMs.general_question_llm import general_question_chain
 from pprint import pprint
 from langchain.schema import Document
+from util.config_manager import ConfigManager
 
 # Import PR tools
-from github_pr_to_excel import GitHubPRToExcelExporter
-from pr_files_pre_downloader import PRFilesPreDownloader
+from libs.pr_helper.github_pr_to_excel import GitHubPRToExcelExporter
+from libs.pr_helper.pr_files_pre_downloader import PRFilesPreDownloader
+
+# 配置日志
+logger = logging.getLogger("PR_REVIEW_APP")
 
 class GraphState(TypedDict):
     """
@@ -52,7 +59,7 @@ def get_pr_node(state):
     Returns:
         state (dict): Updated state with PR information and file paths
     """
-    print("---GET PR INFO---")
+    logger.info("---GET PR INFO---")
     pr_url = state["question"]
     
     # Parse PR URL to extract owner, repo and pr_number
@@ -61,8 +68,8 @@ def get_pr_node(state):
     match = re.match(pattern, pr_url)
     
     if not match:
-        print("---ERROR: INVALID PR URL---")
-        return {"question": pr_url, "error": "Invalid PR URL format"}
+        logger.error(f"---ERROR: INVALID PR URL FORMAT: {pr_url}---")
+        return {"question": pr_url, "error": f"Invalid PR URL format: {pr_url}"}
     
     owner, repo, pr_number = match.groups()
     pr_number = int(pr_number)
@@ -76,12 +83,12 @@ def get_pr_node(state):
         pr_downloader = PRFilesPreDownloader(token=github_token)
         
         # Get PR details
-        print(f"---GETTING PR #{pr_number} DETAILS---")
+        logger.info(f"---GETTING PR #{pr_number} DETAILS---")
         pr_details = pr_exporter.get_pr_details(owner, repo, pr_number)
         
         # Get PR status (open/closed)
         pr_state = pr_details.get("state", "unknown")
-        print(f"---PR STATUS: {pr_state.upper()}---")
+        logger.info(f"---PR STATUS: {pr_state.upper()}---")
         
         # Get PR title, description and diff
         pr_title = pr_details.get("title", "")
@@ -90,8 +97,12 @@ def get_pr_node(state):
         
         # Download PR base code files
         pr_id = str(pr_number)
-        base_code_dir = os.path.join(".", "pr_base_code", pr_id)
-        print(f"---DOWNLOADING PR BASE CODE TO {base_code_dir}---")
+        
+        # 使用配置管理器获取PR审查数据目录路径
+        config_manager = ConfigManager()
+        data_dir = config_manager.get_pr_review_data_dir()
+        base_code_dir = os.path.join(data_dir, owner, repo, "base_code", pr_id)
+        logger.info(f"---DOWNLOADING PR BASE CODE TO {base_code_dir}---")
         
         # Ensure the base code directory exists
         os.makedirs(base_code_dir, exist_ok=True)
@@ -101,7 +112,7 @@ def get_pr_node(state):
             owner, repo, pr_number, base_code_dir
         )
         
-        print(f"---SUCCESSFULLY DOWNLOADED {len(downloaded_files)} FILES---")
+        logger.info(f"---SUCCESSFULLY DOWNLOADED {len(downloaded_files)} FILES---")
         
         # Update state with PR information
         updated_state = {
@@ -117,7 +128,7 @@ def get_pr_node(state):
         return updated_state
         
     except Exception as e:
-        print(f"---ERROR GETTING PR INFO: {str(e)}---")
+        logger.error(f"---ERROR GETTING PR INFO: {str(e)}---")
         return {"question": pr_url, "error": str(e)}
 
 
@@ -131,7 +142,7 @@ def retriever_node(state):
     Returns:
         state (dict): New key added to state, documents, that contains retrieved documents
     """
-    print("---RETRIEVE---")
+    logger.info("---RETRIEVE---")
     original_question = state["question"]
     pr_diff = state.get("pr_diff", "")
     pr_title = state.get("pr_title", "")
@@ -139,17 +150,39 @@ def retriever_node(state):
     
     # Create a combined query using the original question and PR diff if available
     if pr_diff:
-        print("---USING PR DIFF AS PART OF THE QUERY---")
-        # Extract a snippet of the PR diff for the query (to avoid making it too long)
-        # We'll take the first 500 characters as a sample
-        diff_snippet = pr_diff[:500] if len(pr_diff) > 500 else pr_diff
-        search_question = f"{original_question}\n\nRelated PR code changes:\n{diff_snippet}"
+        logger.info("---USING PR DIFF AS PART OF THE QUERY---")
+        # Extract code changes with context from PR diff
+        # Focus on the most important parts of the diff
+        diff_lines = pr_diff.split('\n')
+        # Filter for actual code changes (lines starting with +, -, or @@ for diff headers)
+        relevant_diff_lines = [line for line in diff_lines if line.startswith(('+', '-', '@@'))]
+        # Take up to 30 lines to get good context without being too long
+        filtered_diff = '\n'.join(relevant_diff_lines[:30])
+        
+        # Extract file names from diff headers
+        file_names = []
+        for line in diff_lines:
+            if line.startswith('+++') or line.startswith('---'):
+                parts = line.split('/')
+                if len(parts) > 0:
+                    file_names.append(parts[-1])
+        
+        # Create a targeted search prompt to find similar code changes and related review comments
+        search_question = f"""Find review comments related to similar code changes:
+
+Current PR code changes:
+{filtered_diff}
+
+Files modified: {', '.join(set(file_names))[:100]}
+
+Please find review comments from other reviewers that discuss similar code patterns, 
+implementation approaches, or potential issues related to these code changes."""
     else:
         search_question = original_question
     
     # Retrieval
     documents = retriever.invoke(search_question)
-    print(f"---RETRIEVED {len(documents)} DOCUMENTS---")
+    logger.info(f"---RETRIEVED {len(documents)} DOCUMENTS---")
     
     # Return original question to maintain consistency with the rest of the workflow
     return {"documents": documents, "question": original_question, "pr_diff": pr_diff, "pr_title": pr_title, "pr_files": pr_files}
@@ -166,7 +199,7 @@ def grader_node(state):
         state (dict): Updates documents key with only filtered relevant documents
     """
 
-    print("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
+    logger.info("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
     question = state["question"]
     documents = state["documents"]
     pr_diff = state.get("pr_diff", "")
@@ -181,17 +214,17 @@ def grader_node(state):
         )
         grade = score.binary_score
         if grade == "yes":
-            print("---GRADE: DOCUMENT RELEVANT---")
+            logger.info("---GRADE: DOCUMENT RELEVANT---")
             filtered_docs.append(d)
         else:
-            print("---GRADE: DOCUMENT NOT RELEVANT---")
+            logger.info("---GRADE: DOCUMENT NOT RELEVANT---")
             continue
     return {"documents": filtered_docs, "question": question, "pr_diff": pr_diff, "pr_title": pr_title, "pr_files": pr_files}
 
 
 def generate_node(state):
     """
-    Generate answer
+    Generate answer based on relevant historical PR comments
 
     Args:
         state (dict): The current graph state
@@ -199,15 +232,83 @@ def generate_node(state):
     Returns:
         state (dict): New key added to state, generation, that contains LLM generation
     """
-    print("---GENERATE---")
-    question = f"Please review PR {state["question"]}, and give your comments on this PR"
+    logger.info("---GENERATE---")
+    
+    # Extract relevant information from state
+    pr_url = state["question"]
+    pr_title = state.get("pr_title", "")
+    pr_diff = state.get("pr_diff", "")
     documents = state["documents"]
+    
+    # Create a comprehensive question that includes PR details and code changes
+    # Extract key parts of the diff for better context
+    diff_lines = pr_diff.split('\n')
+    relevant_diff_lines = [line for line in diff_lines if line.startswith(('+', '-', '@@'))][:20]
+    filtered_diff = '\n'.join(relevant_diff_lines)
+    
+    # Format the question to focus on identifying repeated issues
+    question = f"""Analyze whether the current PR repeats errors or issues already found in historical PRs:
 
+PR Information:
+- URL: {pr_url}
+- Title: {pr_title}
+
+Current PR key code changes:
+```diff
+{filtered_diff}
+```
+
+Please analyze whether issues mentioned in historical PR comments might reappear in the current PR and provide relevant recommendations."""
+    
     # RAG generation
     docs_txt = format_docs(documents)
     generation = rag_chain.invoke({"context": docs_txt, "question": question})
+    
     return {"documents": documents, "question": question, "generation": generation}
 
+
+def format_as_mindmap(comments):
+    """
+    将代码审查结果格式化为思维导图样式的可读文本
+    
+    Args:
+        comments: CodeReviewResult对象
+    
+    Returns:
+        str: 格式化后的思维导图文本
+    """
+    result = []
+    result.append("# 代码审查结果")
+    result.append("\n## 总体评价")
+    result.append(f"- {comments.overall_evaluation}")
+    
+    if comments.specific_issues:
+        result.append("\n## 具体问题")
+        for i, issue in enumerate(comments.specific_issues, 1):
+            result.append(f"- 问题 {i}:")
+            # 将问题文本按行分割，每行缩进展示
+            for line in issue.split('\n'):
+                if line.strip():
+                    result.append(f"  └── {line.strip()}")
+    
+    if comments.improvement_suggestions:
+        result.append("\n## 改进建议")
+        for i, suggestion in enumerate(comments.improvement_suggestions, 1):
+            result.append(f"- 建议 {i}:")
+            for line in suggestion.split('\n'):
+                if line.strip():
+                    result.append(f"  └── {line.strip()}")
+    
+    if comments.code_examples:
+        result.append("\n## 代码示例")
+        for i, example in enumerate(comments.code_examples, 1):
+            result.append(f"- 示例 {i}:")
+            result.append("  ```python")
+            for line in example.split('\n'):
+                result.append(f"  {line}")
+            result.append("  ```")
+    
+    return '\n'.join(result)
 
 def review_by_llm_node(state):
     """
@@ -220,20 +321,38 @@ def review_by_llm_node(state):
         state (dict): Updates question key with a re-phrased question
     """
 
-    print("---GENERAL REVIEW---")
+    logger.info("---REVIEW BY LLM---")
+    #logger.info(f"当前状态信息: {pformat(state)}")
     question = f"Please review PR {state["question"]}, and give your comments on this PR"
 
     # Re-write question
     pr_title = state['pr_title']
-    files = state['pr_files']
+    pr_files_path = state['pr_files']
+    files = []
+    # 遍历目录，找出所有文件
+    for root, dirs, filenames in os.walk(pr_files_path):
+        for filename in filenames:
+            files.append(os.path.join(root, filename))
     original_file_content = ""
     for file in files:
         with open(file, 'r') as f:
             original_file_content += f.read() + "\n\n"
     code_diff = state['pr_diff']
-    general_comments = general_reviewer.invoke({"question": question, "pr_title": pr_title, "pr_files": original_file_content, "pr_diff": code_diff})
+    general_comments = general_reviewer.invoke({"question": question, "pr_title": pr_title, "original_file_content": original_file_content, "code_diff": code_diff})
     
-    return {"question": question, "generation": general_comments}
+    # 处理code_examples字段，确保它是正确的类型
+    if hasattr(general_comments, 'code_examples'):
+        # 检查code_examples是否是字符串'None'
+        if isinstance(general_comments.code_examples, str) and general_comments.code_examples.lower() == 'none':
+            general_comments.code_examples = None
+        # 如果不是列表，则转换为列表
+        elif not isinstance(general_comments.code_examples, list) and general_comments.code_examples is not None:
+            general_comments.code_examples = [general_comments.code_examples]
+    
+    # 将general_comments格式化为思维导图样式的可读文本
+    formatted_output = format_as_mindmap(general_comments)
+    
+    return {"question": question, "generation": formatted_output}
 
 
 def general_question_node(state):
@@ -247,7 +366,7 @@ def general_question_node(state):
         state (dict): Updates documents key with appended web results
     """
 
-    print("---GENERAL QUESTION---")
+    logger.info("---GENERAL QUESTION---")
     question = state["question"]
 
     # Web search
@@ -256,7 +375,36 @@ def general_question_node(state):
 
     return {"documents": [web_results], "question": question}
 
+def binary_only_end_node(state):
+    """
+    Node to handle binary-only PRs, adds a message to state and returns.
+    
+    Args:
+        state (dict): The current graph state
+        
+    Returns:
+        dict: Updated state with generation message
+    """
+    # Add a message to state explaining why review is not needed
+    state["generation"] = "PR只包含二进制文件的更改，不需要进行代码审查。"
+    return state
 
+
+def invalid_pr_node(state):
+    """
+    Node to handle invalid PRs (non-open state), adds a message to state and returns.
+    
+    Args:
+        state (dict): The current graph state
+        
+    Returns:
+        dict: Updated state with generation message
+    """
+    # Add a message to state explaining why review is not needed
+    state["generation"] = "当前PR非open状态，不需要进行代码审查。"
+    return state
+
+    
 ### Edges ###
 
 def condition_route_question(state):
@@ -270,14 +418,15 @@ def condition_route_question(state):
         str: Next node to call
     """
 
-    print("---ROUTE QUESTION---")
+    logger.info("---ROUTE QUESTION---")
+    logger.debug(f"当前状态信息: {pformat(state)}")
     question = state["question"]
     source = question_router.invoke({"question": question})
     if source.datasource == "general_question":
-        print("---ROUTE QUESTION TO GENERAL QUESTION---")
+        logger.info("---ROUTE QUESTION TO GENERAL QUESTION---")
         return "general_question"
     elif source.datasource == "vectorstore":
-        print("---ROUTE QUESTION TO RAG---")
+        logger.info("---ROUTE QUESTION TO RAG---")
         return "vectorstore"
 
 
@@ -292,14 +441,39 @@ def condition_check_pr_state(state):
         str: Next node to call based on PR state
     """
 
-    print("---CHECK PR STATE---")
+    logger.info("---CHECK PR STATE---")
     pr_state = state.get("pr_state", "unknown")
     
+    # Check if PR is open
     if pr_state == "open":
-        print("---DECISION: PR IS OPEN, CONTINUE PROCESSING---")
+        # Get PR diff content
+        pr_diff = state.get("pr_diff", "")
+        code_diff = state.get("code_diff", "")
+        
+        # Combine all diff content for checking
+        all_diff = pr_diff + code_diff
+        
+        # Count occurrences of 'Binary files' in diff
+        binary_files_count = all_diff.count("Binary files")
+        
+        # Get PR files directory path
+        pr_files_path = state.get("pr_files", "")
+        
+        # Count total files in PR files directory
+        total_files_count = 0
+        if pr_files_path and os.path.exists(pr_files_path):
+            for root, dirs, files in os.walk(pr_files_path):
+                total_files_count += len(files)
+        
+        # Check if number of binary files matches total files count
+        if binary_files_count > 0 and binary_files_count == total_files_count:
+            logger.info(f"---DECISION: PR CONTAINS ONLY BINARY CHANGES ({binary_files_count} files), STOP PROCESSING---")
+            return "binary_only_pr"
+        
+        logger.info("---DECISION: PR IS OPEN AND CONTAINS CODE CHANGES, CONTINUE PROCESSING---")
         return "valid_pr"
     else:
-        print(f"---DECISION: PR IS {pr_state.upper()}, STOP PROCESSING---")
+        logger.info(f"---DECISION: PR IS {pr_state.upper()}, STOP PROCESSING---")
         return "invalid_pr"
 
 
@@ -314,20 +488,20 @@ def condition_decide_to_generate(state):
         str: Binary decision for next node to call
     """
 
-    print("---ASSESS GRADED DOCUMENTS---")
+    logger.info("---ASSESS GRADED DOCUMENTS---")
     state["question"]
     filtered_documents = state["documents"]
 
     if not filtered_documents:
         # All documents have been filtered check_relevance
         # We will re-generate a new query
-        print(
+        logger.info(
             "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, TRANSFORM QUERY---"
         )
         return "review_by_llm"
     else:
         # We have relevant documents, so generate answer
-        print("---DECISION: GENERATE---")
+        logger.info("---DECISION: GENERATE---")
         return "generate"
 
 
@@ -342,7 +516,7 @@ def condition_hallucination_evaluation(state):
         str: Decision for next node to call
     """
 
-    print("---CHECK HALLUCINATIONS---")
+    logger.info("---CHECK HALLUCINATIONS---")
     question = state["question"]
     documents = state["documents"]
     generation = state["generation"]
@@ -354,8 +528,8 @@ def condition_hallucination_evaluation(state):
 
     # Check hallucination
     if grade == "yes":
-        print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
+        logger.info("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
         return "no_hallucination"
     else:
-        pprint("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY---")
+        logger.warning("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY---")
         return "hallucination"

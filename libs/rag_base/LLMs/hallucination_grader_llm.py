@@ -2,7 +2,9 @@
 from pydantic import BaseModel, Field
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatDashScope
+from langchain_community.chat_models.tongyi import ChatTongyi
+
+from util.config_manager import ConfigManager
 
 # Data model
 class GradeHallucinations(BaseModel):
@@ -12,14 +14,16 @@ class GradeHallucinations(BaseModel):
         description="Answer is grounded in the facts, 'yes' or 'no'"
     )
 
+# Initialize config manager and get API key
+config_manager = ConfigManager()
+dashscope_api_key = config_manager.get_dashscope_api_key()
+
 
 # LLM with function call
-llm = ChatDashScope(model="qwen3-coder-plus", temperature=0)
+llm = ChatTongyi(model="qwen3-coder-plus", temperature=0, dashscope_api_key=dashscope_api_key)
 structured_llm_grader = llm.with_structured_output(GradeHallucinations)
 
 # Prompt
-# system = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. 
-#      Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
 system = """You are a highly precise fact-checker specialized in identifying hallucinations in LLM-generated content.
 Your task is to determine whether the provided LLM generation is fully grounded in and supported by the given set of retrieved facts.
 

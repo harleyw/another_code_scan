@@ -1,4 +1,4 @@
-from graph_defs import GraphState, get_pr_node, general_question_node, retriever_node, grader_node, generate_node, review_by_llm_node, condition_route_question, condition_check_pr_state, condition_decide_to_generate, condition_hallucination_evaluation
+from .graph_defs import GraphState, get_pr_node, general_question_node, retriever_node, grader_node, generate_node, review_by_llm_node, binary_only_end_node, invalid_pr_node, condition_route_question, condition_check_pr_state, condition_decide_to_generate, condition_hallucination_evaluation
 from langgraph.graph import END, StateGraph, START
 
 workflow = StateGraph(GraphState)
@@ -10,6 +10,8 @@ workflow.add_node("retriever_node", retriever_node)      # 检索相关文档
 workflow.add_node("grader_node", grader_node)          # 评估文档相关性
 workflow.add_node("generate_node", generate_node)        # 生成PR审查评论
 workflow.add_node("review_by_llm_node", review_by_llm_node)  # 直接LLM审查
+workflow.add_node("binary_only_end_node", binary_only_end_node)  # 处理只包含二进制文件的PR
+workflow.add_node("invalid_pr_node", invalid_pr_node)  # 处理无效PR（非open状态）
 
 # Build graph - 开始路由
 workflow.add_conditional_edges(
@@ -30,9 +32,16 @@ workflow.add_conditional_edges(
     condition_check_pr_state,
     {
         "valid_pr": "retriever_node",
-        "invalid_pr": "review_by_llm_node",
+        "invalid_pr": "invalid_pr_node",
+        "binary_only_pr": "binary_only_end_node",
     },
 )
+
+# 添加二进制文件PR处理路径
+workflow.add_edge("binary_only_end_node", END)
+
+# 无效PR处理路径
+workflow.add_edge("invalid_pr_node", END)
 
 # 检索和评估路径
 workflow.add_edge("retriever_node", "grader_node")

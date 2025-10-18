@@ -58,6 +58,7 @@ coverage.xml
 
 # PR files directory
 pr_files_before/
+pr_review_data/
 
 .pytest_cache/
 cover/

@@ -141,36 +141,50 @@ def load_excel_pr_data(excel_file_path: str) -> List[Dict[str, Any]]:
         print(f"Error loading Excel file: {str(e)}")
         return []
 
-# Load PR data from Excel file
-# Replace 'github_pr_data.xlsx' with the actual path to your Excel file
-# excel_file_path = "github_pr_data.xlsx"
-excel_file_path = "all_merged_prs.phase4.xlsx"
+# 创建默认的向量存储和检索器
+# 注意：在实际使用中，每个仓库会有自己独立的向量存储
+# 这个默认检索器主要用于确保系统可以正常启动
 
-# Check if the Excel file exists
-if not os.path.exists(excel_file_path):
-    raise FileNotFoundError(f"Excel file {excel_file_path} not found. Please create the file with PR data.")
+# 获取配置的PR审查数据目录路径
+pr_review_data_dir = config_manager.get_pr_review_data_dir()
 
-pr_docs = load_excel_pr_data(excel_file_path)
+# 创建一个默认的持久化目录用于Chroma向量存储
+persist_directory = os.path.join(pr_review_data_dir, "chroma_db")
 
-if not pr_docs:
-    print("No PR data loaded. Exiting.")
-    exit(1)
+# 确保持久化目录存在
+if not os.path.exists(persist_directory):
+    os.makedirs(persist_directory, exist_ok=True)
     
-# 将数据转换为LangChain Document对象
-from langchain.schema import Document
-documents = [Document(page_content=doc['page_content'], metadata=doc['metadata']) for doc in pr_docs]
-    
-# Split
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, 
-    chunk_overlap=200
+# 创建一个空的Chroma向量存储
+vectorstore = Chroma(
+    persist_directory=persist_directory,
+    embedding_function=embd,
+    collection_name="rag-chroma-default"
 )
-doc_splits = text_splitter.split_documents(documents)
 
-# Add to vectorstore
-vectorstore = Chroma.from_documents(
-    documents=doc_splits,
-    collection_name="rag-chroma",
-    embedding=embd,
-)
-retriever = vectorstore.as_retriever()
+# 创建检索器
+def retriever_wrapper(query):
+    """默认检索器包装器，确保系统可以正常启动"""
+    try:
+        # 尝试从向量存储中检索文档
+        return vectorstore.similarity_search(query, k=4)
+    except Exception as e:
+        print(f"Error in retriever: {str(e)}")
+        # 如果检索失败，返回空列表
+        from langchain.schema import Document
+        return []
+
+# 使retriever可以通过invoke方法调用
+class SimpleRetriever:
+    def invoke(self, query):
+        return retriever_wrapper(query)
+
+# 创建retriever实例
+retriever = SimpleRetriever()
+
+# Note: This file is intended to be imported and used by other modules.
+# It provides utility functions for loading PR data and building vectorstores.
+# The actual loading of specific repository data happens in the repo_manager module.
+# The backend service will scan the configured directory (pr_review_data_dir) from config.json
+# and only load Excel data for repositories that have data available.
+# This ensures the backend can start as a blank system when no PR data exists.

@@ -58,7 +58,8 @@ async def review_pr(owner: str, repo: str, pr_id: str = None, question: str = No
     # 构建查询
     if pr_id:
         # 如果指定了PR ID，构建关于该PR的问题
-        query = f"请审查PR {pr_id}，并给出评论"
+        #query = f"请审查PR {pr_id}，并给出评论"
+        query = pr_id
     elif question:
         # 如果提供了自定义问题，使用该问题
         query = question

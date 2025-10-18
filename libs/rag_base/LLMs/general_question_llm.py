@@ -1,6 +1,8 @@
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatDashScope
+from langchain_community.chat_models.tongyi import ChatTongyi
 from pydantic import BaseModel, Field
+
+from util.config_manager import ConfigManager
 
 # Data model
 class GeneralAnswer(BaseModel):
@@ -11,8 +13,12 @@ class GeneralAnswer(BaseModel):
         description="A comprehensive and accurate answer to the user's question.",
     )
 
+# Initialize config manager and get API key
+config_manager = ConfigManager()
+dashscope_api_key = config_manager.get_dashscope_api_key()
+
 # LLM with function call
-llm = ChatDashScope(model="qwen-plus", temperature=0)
+llm = ChatTongyi(model="qwen-plus", temperature=0, dashscope_api_key=dashscope_api_key)
 structured_llm_answer = llm.with_structured_output(GeneralAnswer)
 
 # Prompt

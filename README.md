@@ -23,7 +23,7 @@ This system helps teams improve code review efficiency through the following cor
 ## 📋 System Architecture
 
 ```
-├── app.py                 # Main application entry
+├── backend_app.py                 # Main application entry
 ├── services/              # Core service modules
 │   ├── pr_collector/      # PR collection service
 │   ├── rag_service/       # RAG Q&A service
@@ -68,8 +68,8 @@ This ensures backward compatibility with existing setups that rely on environmen
 ### 1. Clone the Project
 
 ```bash
-git clone <repository-url>
-cd code_scan
+git clone https://github.com/harleyw/another_code_scan.git
+cd another_code_scan
 ```
 
 ### 2. Install Dependencies
@@ -100,10 +100,10 @@ Create or edit the configuration file `./cfg/config.json`:
 
 ```bash
 # Run directly
-python app.py
+python backend_app.py
 
 # Or run with uvicorn (supports more configurations)
-uvicorn app:app --host 0.0.0.0 --port 8000
+uvicorn backend_app:app --host 0.0.0.0 --port 8000
 ```
 
 ### 5. Run the Frontend Service (Optional)
@@ -117,7 +117,7 @@ npm run dev
 
 ### Project Structure Description
 
-- **app.py**: Main application entry, defines API routes and service startup logic
+- **backend_app.py**: Main application entry, defines API routes and service startup logic
 - **services/**: Contains core business logic
 - **libs/**: Provides underlying functional support and utility classes
 - **util/**: Common utility functions and configuration management
@@ -155,7 +155,7 @@ npm run dev
 - Ensure that the API keys in the configuration file have sufficient permissions
 - When running for the first time, the system may need some time to collect data and build the vector store
 - PR data will be saved in the `{owner}/{repo}` folder under the project directory
-- To customize the port or host, modify the `uvicorn.run` parameters in `app.py` or use command-line arguments
+- To customize the port or host, modify the `uvicorn.run` parameters in `backend_app.py` or use command-line arguments
 
 ## 🤝 Contribution Guide
 

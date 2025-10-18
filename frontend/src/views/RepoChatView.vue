@@ -86,7 +86,7 @@ const checkRAGStatus = async () => {
 const initRepoService = async () => {
   try {
     isBuildingRAG.value = true
-    await axios.post('/api/collect_prs', { owner, repo })
+    await axios.post('/api/collect_history_prs', { owner, repo })
     
     // 轮询检查服务是否初始化完成
     const pollInterval = setInterval(async () => {
@@ -136,7 +136,7 @@ const sendMessage = async () => {
       response = await axios.post('/api/review_pr', {
         owner,
         repo,
-        pr_url: userMessage
+        pr_id: userMessage
       })
     } else {
       // 发送通用问题请求
