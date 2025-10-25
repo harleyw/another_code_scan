@@ -167,3 +167,6 @@ Contributions to improve this project are welcome through Issues and Pull Reques
 ## 📄 License
 
 This project is licensed under the [BSD 3-clause License](LICENSE)
+
+Demo screen shot for RAG based PR review result
+<img width="2341" height="7599" alt="image" src="https://github.com/user-attachments/assets/a0ce8420-5dcc-4370-aae9-363a82393ccb" />
