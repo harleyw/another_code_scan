@@ -170,3 +170,7 @@ This project is licensed under the [BSD 3-clause License](LICENSE)
 
 Demo screen shot for RAG based PR review result
 <img width="2341" height="7599" alt="image" src="https://github.com/user-attachments/assets/a0ce8420-5dcc-4370-aae9-363a82393ccb" />
+
+Demo screen shot for non-RAG-hit PR review result
+<img width="2340" height="4567" alt="image" src="https://github.com/user-attachments/assets/e2cd7364-2ba6-4d10-87bd-996f97a440a0" />
+
