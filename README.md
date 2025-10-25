@@ -23,7 +23,7 @@ An intelligent PR review and Q&A system based on LangGraph and RAG technologies,
     - [Project Structure Description](#project-structure-description)
     - [Main API Interfaces](#main-api-interfaces)
   - [📊 Usage Flow](#-usage-flow)
-  - [Demonstration](#demonstration)
+  - [🎬 Demonstration](#-demonstration)
     - [Demo screen shot for RAG based PR review result](#demo-screen-shot-for-rag-based-pr-review-result)
     - [Demo screen shot for non-RAG-hit PR review result](#demo-screen-shot-for-non-rag-hit-pr-review-result)
   - [📝 Notes](#-notes)
@@ -180,7 +180,7 @@ npm run dev
 3. **Query Review Service**: Call `/api/review/{owner}/{repo}` to check the service initialization status
 4. **Conduct PR Review**: Call the `/api/review_pr` endpoint for intelligent Q&A and review
 
-## Demonstration
+## 🎬 Demonstration
 
 ### Demo screen shot for RAG based PR review result
 
