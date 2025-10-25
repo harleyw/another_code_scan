@@ -371,6 +371,49 @@ def update_all_repos_pr_data():
     except Exception as e:
         logger.error(f"更新所有仓库PR数据时出错: {str(e)}")
 
+# 创建一个函数来初始化所有已注册仓库的vectorstore
+def initialize_all_vectorstores():
+    """在服务器启动前，检查并初始化所有已注册仓库的vectorstore"""
+    try:
+        # 获取所有已注册的服务
+        all_services = repo_service_manager.get_all_services()
+        logger.info(f"开始检查所有已注册仓库的vectorstore，共 {len(all_services)} 个仓库")
+        
+        if not all_services:
+            logger.info("没有已注册的仓库服务，跳过vectorstore初始化")
+            return
+        
+        # 创建一个事件循环
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # 创建任务列表
+        tasks = []
+        for service_id, service_info in all_services.items():
+            owner, repo = service_id.split('/')
+            # 检查vectorstore是否已初始化
+            if not service_info["initialized"]:
+                # 检查是否存在Excel文件
+                if os.path.exists(service_info["excel_file_path"]):
+                    logger.info(f"发现未初始化的vectorstore，开始构建: {owner}/{repo}")
+                    task = loop.create_task(run_vectorstore_build_with_semaphore(owner, repo))
+                    tasks.append(task)
+                else:
+                    logger.info(f"仓库 {owner}/{repo} 缺少Excel文件，跳过vectorstore构建")
+            else:
+                logger.info(f"仓库 {owner}/{repo} 的vectorstore已初始化")
+        
+        # 运行所有任务
+        if tasks:
+            logger.info(f"开始执行 {len(tasks)} 个vectorstore初始化任务，最大并发数: {max_concurrent_vectorstore_build}")
+            loop.run_until_complete(asyncio.gather(*tasks))
+        
+        # 关闭事件循环
+        loop.close()
+        logger.info("所有仓库vectorstore初始化任务执行完成")
+    except Exception as e:
+        logger.error(f"初始化所有仓库vectorstore时出错: {str(e)}")
+
 if __name__ == "__main__":
     logger.info("PR审查系统启动中...")
     logger.info(f"当前工作目录: {os.getcwd()}")
@@ -430,6 +473,14 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"执行PR数据自动更新时出错: {str(e)}")
         # 继续启动服务，不因更新错误而中断
+    
+    # 在服务器启动前，初始化所有已注册仓库的vectorstore
+    try:
+        logger.info("在服务器启动前，开始初始化所有已注册仓库的vectorstore")
+        initialize_all_vectorstores()
+    except Exception as e:
+        logger.error(f"执行vectorstore初始化时出错: {str(e)}")
+        # 继续启动服务，不因初始化错误而中断
     
     try:
         logger.info("启动FastAPI服务器，监听地址: 0.0.0.0:8000")

@@ -1,13 +1,21 @@
 from libs.rag_base.graphs.graph_build import app as graph_app
+from libs.rag_base.graphs.graph_defs import set_global_vectorstore
 import traceback
 
 class LangGraphWrapper:
     """LangGraph的封装类，简化对LangGraph的调用"""
     
     def __init__(self, vectorstore=None):
-        """初始化LangGraph包装器"""
+        """初始化LangGraph包装器
+        
+        Args:
+            vectorstore: 特定仓库的vectorstore实例
+        """
         self.vectorstore = vectorstore
-        # 如果需要传递vectorstore到graph_app，可以在这里实现
+        # 将vectorstore设置为全局，供retriever_node使用
+        if vectorstore:
+            set_global_vectorstore(vectorstore)
+            print(f"已设置全局vectorstore供检索使用")
         
     async def query(self, question: str) -> str:
         """使用LangGraph执行查询并返回结果"""
@@ -49,8 +57,10 @@ class LangGraphWrapper:
             return f"查询过程中发生错误: {error_message}"
     
     def set_vectorstore(self, vectorstore):
-        """设置vectorstore"""
+        """设置vectorstore并更新全局引用"""
         self.vectorstore = vectorstore
+        set_global_vectorstore(vectorstore)
+        print(f"已更新全局vectorstore供检索使用")
     
     def get_status(self) -> dict:
         """获取LangGraph的状态信息"""

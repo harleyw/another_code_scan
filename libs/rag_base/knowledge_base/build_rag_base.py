@@ -78,18 +78,27 @@ def load_excel_pr_data(excel_file_path: str) -> List[Dict[str, Any]]:
                         if pd.notna(comment) and comment.strip():
                             review_comments.append(comment)
                 
-                # 构建PR文档内容
+                # 构建PR文档内容 - 优化文档结构以提高检索效率
                 document_content = f"PR ID: {pr_id}\n"
+                
+                # 首先添加代码变更，因为这通常是检索的关键
+                if code_changes and pd.notna(code_changes):
+                    document_content += f"\n## CODE CHANGES START ##\n{code_changes}\n## CODE CHANGES END ##\n\n"
+                
+                # 然后添加评论，使用明显的分隔符
+                if review_comments:
+                    document_content += f"\n## REVIEW COMMENTS START ##\n"
+                    for i, comment in enumerate(review_comments, 1):
+                        document_content += f"\n--- COMMENT {i} START ---\n{comment}\n--- COMMENT {i} END ---\n"
+                    document_content += f"\n## REVIEW COMMENTS END ##\n"
+                
+                # 最后添加其他信息
                 if description and pd.notna(description):
                     document_content += f"Description:\n{description}\n\n"
-                if code_changes and pd.notna(code_changes):
-                    document_content += f"Code Changes:\n{code_changes}\n\n"
                 if general_comments and pd.notna(general_comments):
                     document_content += f"General Comments:\n{general_comments}\n\n"
                 if issue_comments and pd.notna(issue_comments):
                     document_content += f"Issue Comments:\n{issue_comments}\n\n"
-                if review_comments:
-                    document_content += f"Review Comments:\n" + "\n---\n".join(review_comments)
                 
                 # 添加元数据
                 metadata = {
@@ -108,18 +117,24 @@ def load_excel_pr_data(excel_file_path: str) -> List[Dict[str, Any]]:
             for _, row in df.iterrows():
                 pr_id = row['PR id']
                 
-                # 构建PR文档内容
+                # 构建PR文档内容 - 优化文档结构以提高检索效率
                 document_content = f"PR ID: {pr_id}\n"
+                
+                # 首先添加代码变更，因为这通常是检索的关键
+                if 'code changes' in row and pd.notna(row['code changes']):
+                    document_content += f"\n## CODE CHANGES START ##\n{row['code changes']}\n## CODE CHANGES END ##\n\n"
+                
+                # 然后添加评论，使用明显的分隔符
+                if 'review comments' in row and pd.notna(row['review comments']):
+                    document_content += f"\n## REVIEW COMMENTS START ##\n{row['review comments']}\n## REVIEW COMMENTS END ##\n\n"
+                
+                # 最后添加其他信息
                 if 'description' in row and pd.notna(row['description']):
                     document_content += f"Description:\n{row['description']}\n\n"
-                if 'code changes' in row and pd.notna(row['code changes']):
-                    document_content += f"Code Changes:\n{row['code changes']}\n\n"
                 if 'general comments' in row and pd.notna(row['general comments']):
                     document_content += f"General Comments:\n{row['general comments']}\n\n"
                 if 'issue comments' in row and pd.notna(row['issue comments']):
                     document_content += f"Issue Comments:\n{row['issue comments']}\n\n"
-                if 'review comments' in row and pd.notna(row['review comments']):
-                    document_content += f"Review Comments:\n{row['review comments']}\n\n"
                 
                 # 添加元数据
                 metadata = {
@@ -163,11 +178,21 @@ vectorstore = Chroma(
 )
 
 # 创建检索器
-def retriever_wrapper(query):
-    """默认检索器包装器，确保系统可以正常启动"""
+def retriever_wrapper(query, custom_vectorstore=None):
+    """检索器包装器，优先使用传入的vectorstore，否则使用默认vectorstore
+    
+    Args:
+        query: 检索查询字符串
+        custom_vectorstore: 可选的自定义vectorstore实例，优先使用
+        
+    Returns:
+        检索到的文档列表
+    """
     try:
+        # 优先使用传入的custom_vectorstore，如果没有则使用默认的vectorstore
+        store_to_use = custom_vectorstore if custom_vectorstore is not None else vectorstore
         # 尝试从向量存储中检索文档
-        return vectorstore.similarity_search(query, k=4)
+        return store_to_use.similarity_search(query, k=4)
     except Exception as e:
         print(f"Error in retriever: {str(e)}")
         # 如果检索失败，返回空列表
@@ -176,10 +201,13 @@ def retriever_wrapper(query):
 
 # 使retriever可以通过invoke方法调用
 class SimpleRetriever:
+    def __init__(self, custom_vectorstore=None):
+        self.custom_vectorstore = custom_vectorstore
+        
     def invoke(self, query):
-        return retriever_wrapper(query)
+        return retriever_wrapper(query, self.custom_vectorstore)
 
-# 创建retriever实例
+# 创建默认retriever实例
 retriever = SimpleRetriever()
 
 # Note: This file is intended to be imported and used by other modules.

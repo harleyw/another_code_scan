@@ -118,10 +118,11 @@ class RepoServiceManager:
             # 将数据转换为LangChain Document对象
             documents = [Document(page_content=doc['page_content'], metadata=doc['metadata']) for doc in pr_docs]
             
-            # 分割文档
+            # 分割文档 - 增大块大小以确保评论部分不会被分割出去
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000, 
-                chunk_overlap=200
+                chunk_size=2000, 
+                chunk_overlap=300,
+                separators=["\n\n", "\n", " ", ""]
             )
             doc_splits = text_splitter.split_documents(documents)
             

@@ -4,7 +4,8 @@ import axios from 'axios';
 export const useChatStore = defineStore('chat', {
   state: () => ({
     messages: [],
-    isLoading: false,
+    isLoadingMessage: false, // 用于提交PR评审
+    isLoadingPRs: false,     // 用于更新历史PR数据
     error: null,
     repoInfo: {
       owner: '',
@@ -16,7 +17,7 @@ export const useChatStore = defineStore('chat', {
   actions: {
     async sendMessage(message) {
       this.addMessage(message, 'user');
-      this.isLoading = true;
+      this.isLoadingMessage = true;
       this.error = null;
 
       try {
@@ -35,7 +36,7 @@ export const useChatStore = defineStore('chat', {
         this.error = '发送消息失败，请重试';
         this.addMessage('发送消息失败，请重试', 'error');
       } finally {
-        this.isLoading = false;
+        this.isLoadingMessage = false;
       }
     },
 
@@ -60,7 +61,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async collectPRs() {
-      this.isLoading = true;
+      this.isLoadingPRs = true;
       this.error = null;
 
       try {
@@ -74,7 +75,7 @@ export const useChatStore = defineStore('chat', {
         this.error = '收集PR失败，请重试';
         throw err;
       } finally {
-        this.isLoading = false;
+        this.isLoadingPRs = false;
       }
     },
 

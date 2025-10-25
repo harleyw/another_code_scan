@@ -24,49 +24,51 @@
           </div>
         </div>
         <div class="action-container">
-          <button @click="collectPRs" :disabled="isLoading || !canCollectPRs" class="update-pr-btn">
-            {{ isLoading ? '更新中...' : '更新历史PR数据' }}
+          <button @click="collectPRs" :disabled="isLoadingPRs || !canCollectPRs" class="update-pr-btn">
+            {{ isLoadingPRs ? '更新中...' : '更新历史PR数据' }}
           </button>
         </div>
       </div>
 
-      <div class="pr-input-section">
-        <label for="prUrl">PR 地址 (可选):</label>
-        <input
-          id="prUrl"
-          v-model="prUrlInput"
-          type="text"
-          :placeholder="`https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/123`"
-          @input="updatePrUrl"
-        />
+      <div class="pr-input-action-container">
+        <div class="pr-input-content">
+          <label for="prUrl">PR 地址:</label>
+          <input
+            id="prUrl"
+            v-model="prUrlInput"
+            type="text"
+            :placeholder="`https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/123`"
+            @input="updatePrUrl"
+            @blur="completePrUrl"
+            @keyup.enter="completePrUrl"
+          />
+        </div>
+        <div class="pr-review-action-container">
+          <button @click="submitPRUrl" :disabled="isLoadingMessage || !prUrlInput.trim()" class="submit-question-btn">
+            提交PR评审
+          </button>
+        </div>
       </div>
+
 
       <div class="chat-section">
-        <div class="messages-container" ref="messagesContainer">
-          <div v-if="isEmpty" class="empty-state">
-            <p>请输入问题开始对话</p>
+        <div v-if="messages.length > 0" class="answer-section">
+          <div class="answer-header">
+            <span class="answer-check">✓</span>
+            <span class="answer-title">PR评审结果</span>
           </div>
-          <div v-else v-for="message in messages" :key="message.id" :class="['message', message.type]">
-            <div class="message-content">{{ message.content }}</div>
-            <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+          <div class="answer-content">
+            <!-- 只显示最后一条消息（当前问题的回答） -->
+            <div v-if="messages.length > 0" class="review-content" v-html="lastMessageContent"></div>
           </div>
-          <div v-if="isLoading" class="loading-message">
-            <div class="loading-spinner"></div>
-            <span>思考中...</span>
-          </div>
+        </div>
+        
+        <div v-if="isLoadingMessage" class="loading-message">
+          <div class="loading-spinner"></div>
+          <span>思考中...</span>
         </div>
 
-        <div class="input-container">
-          <textarea
-            v-model="messageInput"
-            placeholder="请输入您的问题..."
-            @keydown.enter.prevent="sendMessage"
-            :disabled="isLoading"
-          ></textarea>
-          <button @click="sendMessage" :disabled="isLoading || !messageInput.trim()">
-            发送
-          </button>
-        </div>
+        <!-- 输入问题文本框和发送按钮已移除 -->
       </div>
     </main>
   </div>
@@ -76,16 +78,111 @@
 import { useRoute } from 'vue-router';
 import { useChatStore } from '../stores/chatStore';
 import { storeToRefs } from 'pinia';
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
+import MarkdownIt from 'markdown-it';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css';
+import 'github-markdown-css';
 
 export default {
   name: 'RepoRag',
   setup() {
     const route = useRoute();
     const chatStore = useChatStore();
-    const { messages, isLoading, error, repoInfo, hasMessages, isEmpty } = storeToRefs(chatStore);
-    const messageInput = ref('');
+    const { messages, isLoadingMessage, isLoadingPRs, error, repoInfo, hasMessages, isEmpty } = storeToRefs(chatStore);
+
     const prUrlInput = ref('');
+    
+    // 初始化markdown-it配置，启用代码高亮
+    const md = new MarkdownIt({
+      highlight: function (str, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          try {
+            return '<pre class="hljs"><code>' +
+                   hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                   '</code></pre>';
+          } catch (__) {}
+        }
+        
+        return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+      },
+      breaks: true,
+      html: true,
+      linkify: true,
+      typographer: true
+    });
+
+    // 预处理函数：将"Historical PR" + PR ID 替换为当前repo的PR链接
+    // 并将响应中所有相同的#数字也替换为PR链接
+    const processNestedCodeBlocks = (content) => {
+      if (!content) return '';
+      
+      try {
+        let processedContent = content;
+        
+        if (repoInfo.value.owner && repoInfo.value.repo) {
+          // 1. 处理 Historical PR #数字
+          const historicalPrRegex = /Historical PR #(\d+)/gi;
+          const prIds = new Set();
+          const matches = [];
+          
+          // 收集所有 Historical PR 匹配项
+          let match;
+          while ((match = historicalPrRegex.exec(content)) !== null) {
+            matches.push({
+              fullMatch: match[0],
+              prId: match[1]
+            });
+            prIds.add(match[1]); // 记录所有 Historical PR 的 ID
+          }
+
+          // 替换 Historical PR 链接
+          matches.forEach((element) => {
+            processedContent = processedContent.replace(
+              element.fullMatch,
+              () => {
+                const prUrl = `https://github.com/${repoInfo.value.owner}/${repoInfo.value.repo}/pull/${element.prId}`;
+                return `Historical PR <a href="${prUrl}" target="_blank" rel="noopener noreferrer">#${element.prId}</a>`;
+              }
+            );
+          });
+
+          // 2. 处理独立的 #数字（排除 Historical PR 已处理的情况）
+          prIds.forEach(prId => {
+            // 精确匹配独立的 #prId（前面不能是字母/数字，后面可以是空格或标点）
+            const standalonePrRegex = new RegExp(`(?<![\\w/])#${prId}(?!\\d)`, 'g');
+            const prUrl = `https://github.com/${repoInfo.value.owner}/${repoInfo.value.repo}/pull/${prId}`;
+            
+            processedContent = processedContent.replace(
+              standalonePrRegex,
+              `<a href="${prUrl}" target="_blank" rel="noopener noreferrer">#${prId}</a>`
+            );
+          });
+        }
+        
+        return processedContent;
+      } catch (e) {
+        console.error('处理Historical PR链接时出错:', e);
+        return content;
+      }
+    };
+    
+    // 计算属性：获取最后一条消息并转换为HTML格式
+    const lastMessageContent = computed(() => {
+      if (messages.value.length === 0) return '';
+      
+      // 获取最后一条消息
+      const lastMessage = messages.value[messages.value.length - 1];
+      
+      // 如果是助手或错误消息，使用markdown-it进行Markdown渲染
+      if (lastMessage.type === 'assistant' || lastMessage.type === 'error') {
+        // 先预处理消息内容，修复嵌套代码块格式
+        const processedContent = processNestedCodeBlocks(lastMessage.content || '');
+        return md.render(processedContent);
+      }
+      
+      return '';
+    });
     const repoStatus = ref(null);
     const messagesContainer = ref(null);
     
@@ -121,12 +218,14 @@ export default {
       }
     };
 
-    // 发送消息
-    const sendMessage = async () => {
-      if (!messageInput.value.trim()) return;
-      await chatStore.sendMessage(messageInput.value.trim());
-      messageInput.value = '';
-      scrollToBottom();
+
+
+    // 提交PR URL进行评审
+    const submitPRUrl = async () => {
+      if (!prUrlInput.value.trim() || isLoadingMessage.value) return;
+      
+      // 调用store的sendMessage方法，传入PR URL作为问题
+      await chatStore.sendMessage(prUrlInput.value.trim());
     };
 
     // 收集PR数据
@@ -143,7 +242,18 @@ export default {
     // 更新PR URL
     const updatePrUrl = () => {
       chatStore.repoInfo.prUrl = prUrlInput.value;
-      // 这里可以添加验证逻辑
+    };
+    
+    // 补全PR URL
+    const completePrUrl = () => {
+      const input = prUrlInput.value.trim();
+      
+      // 自动补全逻辑：如果输入的是数字（可能是PR编号），且不是以完整URL开头
+      if (/^\d+$/.test(input) && !input.startsWith('http')) {
+        // 自动补全为完整的PR URL格式
+        prUrlInput.value = `https://github.com/${repoInfo.value.owner}/${repoInfo.value.repo}/pull/${input}`;
+        chatStore.repoInfo.prUrl = prUrlInput.value;
+      }
     };
 
     // 滚动到底部
@@ -180,21 +290,23 @@ export default {
 
     return {
       messages,
-      isLoading,
+      isLoadingMessage,
+      isLoadingPRs,
       error,
       repoInfo,
-      messageInput,
       prUrlInput,
       repoStatus,
       messagesContainer,
       hasMessages,
       isEmpty,
-      sendMessage,
+      submitPRUrl,
       collectPRs,
       updatePrUrl,
+      completePrUrl,
       formatTime,
       canCollectPRs,
-      getStatusClass
+      getStatusClass,
+      lastMessageContent
     };
   }
 };
@@ -238,53 +350,51 @@ export default {
   overflow-y: auto;
 }
 
-.pr-input-section {
+.pr-input-action-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  gap: 15px;
+}
+
+.pr-input-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background-color: #e9ecef;
 }
 
-.pr-input-section label {
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.pr-input-section input {
+.pr-input-content input {
   padding: 10px;
   border: 1px solid #ced4da;
   border-radius: 4px;
   font-size: 14px;
+  background-color: #ffffff;
 }
 
-.pr-input-section button {
-  padding: 10px 20px;
+.pr-input-content label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.submit-question-btn {
+  width: 180px;
+  padding: 12px 24px;
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
-.pr-input-section button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.pr-input-section button:disabled {
+.submit-question-btn:disabled {
   background-color: #6c757d;
   cursor: not-allowed;
-}
-
-.status-section {
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: #e9ecef;
-  border-radius: 8px;
 }
 
 .status-and-action-container {
@@ -306,16 +416,21 @@ export default {
   white-space: nowrap;
 }
 
+.pr-review-action-container {
+  white-space: nowrap;
+}
+
 .update-pr-btn {
-  padding: 10px 15px;
+  width: 180px;
+  padding: 12px 24px;
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
-  min-width: fit-content;
 }
 
 .update-pr-btn:hover:not(:disabled) {
@@ -346,85 +461,100 @@ export default {
 }
 
 .status-available {
-    color: #28a745;
-  }
+  color: #28a745;
+}
 
-  .status-collecting {
-    color: #ffc107;
-  }
-
-  .status-unavailable {
-    color: #dc3545;
-  }
+.status-unavailable {
+  color: #dc3545;
+}
 
 .chat-section {
   display: flex;
   flex-direction: column;
-  height: 60vh;
+  gap: 20px;
+}
+
+.answer-section {
   border: 1px solid #dee2e6;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.messages-container {
-  flex: 1;
+.answer-header {
+  background-color: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.answer-check {
+  color: #28a745;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.answer-title {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+.answer-content {
   padding: 20px;
-  overflow-y: auto;
+  background-color: #ffffff;
+  min-height: 100px;
+}
+
+.review-content {
+        padding: 15px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+  .review-content :deep(.markdown-body) {
+  padding: 20px;
+  border-radius: 6px;
   background-color: #ffffff;
 }
 
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #6c757d;
+  .review-content :deep(.markdown-body pre) {
+  background-color: #f6f8fa !important;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
 }
 
-.message {
-  margin-bottom: 16px;
+  .review-content :deep(.markdown-body code) {
+  background-color: #f3f4f6 !important;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
 
-.message.user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  .review-content :deep(.markdown-body pre code) {
+  background-color: transparent !important;
+  padding: 0;
 }
 
-.message.assistant {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.message.error {
-  color: #dc3545;
-  text-align: center;
-}
-
-.message-content {
-  max-width: 70%;
-  padding: 12px 16px;
-  border-radius: 18px;
+/* 为代码块添加自动换行功能 */
+.review-content pre {
+  white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
-.message.user .message-content {
-  background-color: #007bff;
-  color: white;
-  border-bottom-right-radius: 4px;
-}
-
-.message.assistant .message-content {
-  background-color: #f1f3f5;
-  color: #2c3e50;
-  border-bottom-left-radius: 4px;
-}
-
-.message-time {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #adb5bd;
+.review-content code {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .loading-message {
@@ -450,46 +580,7 @@ export default {
   100% { transform: rotate(360deg); }
 }
 
-.input-container {
-  display: flex;
-  padding: 16px;
-  background-color: #f8f9fa;
-  border-top: 1px solid #dee2e6;
-}
-
-.input-container textarea {
-  flex: 1;
-  padding: 12px;
-  border: 1px solid #ced4da;
-  border-radius: 20px;
-  resize: none;
-  font-size: 14px;
-  line-height: 1.4;
-  max-height: 100px;
-}
-
-.input-container button {
-  margin-left: 12px;
-  padding: 12px 24px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  align-self: flex-end;
-}
-
-.input-container button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.input-container button:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
-}
+/* 输入问题文本框和发送按钮的样式已移除 */
 
 @media (max-width: 768px) {
   .repo-rag-container {
@@ -498,10 +589,6 @@ export default {
   
   .main-content {
     padding: 10px;
-  }
-  
-  .message-content {
-    max-width: 85%;
   }
 }
 </style>
