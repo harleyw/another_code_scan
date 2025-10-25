@@ -1,4 +1,4 @@
-# PR Review System
+# PR Review System based on LangGraph and RAG Technologies
 
 An intelligent PR review and Q&A system based on LangGraph and RAG technologies, helping developers analyze and understand GitHub Pull Request history more efficiently.
 
@@ -7,8 +7,10 @@ An intelligent PR review and Q&A system based on LangGraph and RAG technologies,
 This system helps teams improve code review efficiency through the following core functions:
 - Automatically collect all merged PRs from GitHub repositories and generate Excel data files
 - Build knowledge base based on RAG (Retrieval-Augmented Generation) technology
-- Provide intelligent Q&A functionality for quick查询 of PR-related information
+- Provide intelligent Q&A functionality for quick lookup of PR-related information
 - Support multi-repository management and data persistence
+- Enhanced PR ID processing with automatic link generation in responses
+- Independent loading states for PR review and history data update operations
 
 ## 🛠 Technology Stack
 

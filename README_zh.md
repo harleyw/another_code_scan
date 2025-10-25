@@ -1,6 +1,6 @@
-# PR 审查系统
+# 基于 LangGraph 和 RAG 技术的智能 PR 审查系统
 
-基于 LangGraph 和 RAG 技术的智能 PR 审查和问答系统，帮助开发者更高效地分析和审查 GitHub Pull Request质量。
+基于 LangGraph 和 RAG 技术的智能 PR 审查和问答系统，帮助开发者更高效地分析和审查 GitHub Pull Request 质量。
 
 ## 🚀 项目概述
 
@@ -9,6 +9,8 @@
 - 基于 RAG (Retrieval-Augmented Generation) 技术构建知识库
 - 提供智能问答功能，快速查询 PR 相关信息
 - 支持多仓库管理和数据持久化
+- 增强的 PR ID 处理功能，在响应中自动生成可点击链接
+- PR 评审和历史数据更新操作的独立加载状态管理
 
 ## 🛠 技术栈
 
