@@ -2,6 +2,34 @@
 
 An intelligent PR review and Q&A system based on LangGraph and RAG technologies, helping developers analyze and understand GitHub Pull Request history more efficiently.
 
+## 📑 Table of Contents
+
+- [PR Review System based on LangGraph and RAG Technologies](#pr-review-system-based-on-langgraph-and-rag-technologies)
+  - [📑 Table of Contents](#-table-of-contents)
+  - [🚀 Project Overview](#-project-overview)
+  - [🛠 Technology Stack](#-technology-stack)
+  - [📋 System Architecture](#-system-architecture)
+  - [⚙️ Configuration Instructions](#⚙️-configuration-instructions)
+    - [Configuration File](#configuration-file)
+    - [Configuration Priority](#configuration-priority)
+    - [Environment Variable Fallback](#environment-variable-fallback)
+  - [🚀 Deployment Guide](#-deployment-guide)
+    - [1. Clone the Project](#1-clone-the-project)
+    - [2. Install Dependencies](#2-install-dependencies)
+    - [3. Configure API Keys](#3-configure-api-keys)
+    - [4. Run the Backend Service](#4-run-the-backend-service)
+    - [5. Run the Frontend Service (Optional)](#5-run-the-frontend-service-optional)
+  - [🔧 Development Guide](#-development-guide)
+    - [Project Structure Description](#project-structure-description)
+    - [Main API Interfaces](#main-api-interfaces)
+  - [📊 Usage Flow](#-usage-flow)
+  - [Demonstration](#demonstration)
+    - [Demo screen shot for RAG based PR review result](#demo-screen-shot-for-rag-based-pr-review-result)
+    - [Demo screen shot for non-RAG-hit PR review result](#demo-screen-shot-for-non-rag-hit-pr-review-result)
+  - [📝 Notes](#-notes)
+  - [🤝 Contribution Guide](#-contribution-guide)
+  - [📄 License](#-license)
+
 ## 🚀 Project Overview
 
 This system helps teams improve code review efficiency through the following core functions:
@@ -152,6 +180,16 @@ npm run dev
 3. **Query Review Service**: Call `/api/review/{owner}/{repo}` to check the service initialization status
 4. **Conduct PR Review**: Call the `/api/review_pr` endpoint for intelligent Q&A and review
 
+## Demonstration
+
+### Demo screen shot for RAG based PR review result
+
+<img width="2341" height="7599" alt="image" src="https://github.com/user-attachments/assets/a0ce8420-5dcc-4370-aae9-363a82393ccb" />
+
+### Demo screen shot for non-RAG-hit PR review result
+
+<img width="2340" height="4567" alt="image" src="https://github.com/user-attachments/assets/e2cd7364-2ba6-4d10-87bd-996f97a440a0" />
+
 ## 📝 Notes
 
 - Ensure that the API keys in the configuration file have sufficient permissions
@@ -169,10 +207,3 @@ Contributions to improve this project are welcome through Issues and Pull Reques
 ## 📄 License
 
 This project is licensed under the [BSD 3-clause License](LICENSE)
-
-Demo screen shot for RAG based PR review result
-<img width="2341" height="7599" alt="image" src="https://github.com/user-attachments/assets/a0ce8420-5dcc-4370-aae9-363a82393ccb" />
-
-Demo screen shot for non-RAG-hit PR review result
-<img width="2340" height="4567" alt="image" src="https://github.com/user-attachments/assets/e2cd7364-2ba6-4d10-87bd-996f97a440a0" />
-
