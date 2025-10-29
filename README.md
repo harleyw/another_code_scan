@@ -89,7 +89,6 @@ The system reads configuration in the following priority order:
 If a key is not found in the configuration file, the system will attempt to read it from the following environment variables:
 - `GITHUB_TOKEN` for GitHub token
 - `DASHSCOPE_API_KEY` for DashScope API key
-- `OPENAI_API_KEY` for OpenAI API key
 
 This ensures backward compatibility with existing setups that rely on environment variables.
 
