@@ -75,7 +75,6 @@
 配置文件包含以下键：
 - `github_token`: GitHub 个人访问令牌，用于访问仓库
 - `dashscope_api_key`: DashScope 嵌入模型 API 密钥
-- `openai_api_key`: OpenAI 服务 API 密钥（如需使用）
 
 ### 配置优先级
 
