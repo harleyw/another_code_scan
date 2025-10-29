@@ -75,7 +75,6 @@ All configuration keys are stored in a single JSON file: `./cfg/config.json`
 The configuration file contains the following keys:
 - `github_token`: GitHub personal access token for accessing repositories
 - `dashscope_api_key`: API key for DashScope embeddings
-- `openai_api_key`: API key for OpenAI services (if used)
 
 ### Configuration Priority
 
@@ -121,7 +120,6 @@ Create or edit the configuration file `./cfg/config.json`:
 {
   "github_token": "your_github_token_here",
   "dashscope_api_key": "your_dashscope_api_key_here",
-  "openai_api_key": "your_openai_api_key_here"
 }
 ```
 
