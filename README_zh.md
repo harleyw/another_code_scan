@@ -88,7 +88,6 @@
 如果在配置文件中未找到键，系统会尝试从以下环境变量读取：
 - `GITHUB_TOKEN` 对应 GitHub token
 - `DASHSCOPE_API_KEY` 对应 DashScope API key
-- `OPENAI_API_KEY` 对应 OpenAI API key
 
 这确保了与依赖环境变量的现有设置的向后兼容性。
 
@@ -121,7 +120,6 @@ cd ..
 {
   "github_token": "your_github_token_here",
   "dashscope_api_key": "your_dashscope_api_key_here",
-  "openai_api_key": "your_openai_api_key_here"
 }
 ```
 
