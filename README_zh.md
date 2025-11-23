@@ -104,7 +104,7 @@ cd another_code_scan
 
 ```bash
 # 安装 Python 依赖
-pip install -r requirements.txt
+pip install -r requirements.txt -i https://pypi.org/simple
 
 # 如需前端开发，安装前端依赖
 cd frontend

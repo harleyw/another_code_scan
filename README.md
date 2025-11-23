@@ -9,7 +9,7 @@ An intelligent PR review and Q&A system based on LangGraph and RAG technologies,
   - [🚀 Project Overview](#-project-overview)
   - [🛠 Technology Stack](#-technology-stack)
   - [📋 System Architecture](#-system-architecture)
-  - [⚙️ Configuration Instructions](#⚙️-configuration-instructions)
+  - [⚙️ Configuration Instructions](#️-configuration-instructions)
     - [Configuration File](#configuration-file)
     - [Configuration Priority](#configuration-priority)
     - [Environment Variable Fallback](#environment-variable-fallback)
@@ -104,7 +104,7 @@ cd another_code_scan
 
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt -i https://pypi.org/simple
 
 # If frontend development is needed, install frontend dependencies
 cd frontend
